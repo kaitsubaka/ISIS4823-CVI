@@ -43,23 +43,13 @@ const (
 
 var (
 	treePositions = []mgl32.Vec3{
-		//{-2.5, 0, -0.5},
-		//{-2, 0, 1.5},
-		//{-2, 0, -2.4},
+		{-2.5, 0, -0.5},
+		{-2, 0, 1.5},
+		{-2, 0, -2.4},
 		{-1, 0, -1},
-		//{-1, 0, 1},
+		{-1, 0, 1},
 		{1, 0, 1},
-		//{2, 0, -1.5},
-	}
-	controlSnowPathPoints = []mgl32.Vec3{
-		{-5, 0, 5},
-		{1, 0, 5},
-		{1, 0, 2.5},
-	}
-	controlSnowPathPoints2 = []mgl32.Vec3{
-		{1, 0, 2.5},
-		{1, 0, 5},
-		{-5, 0, 5},
+		{2, 0, -1.5},
 	}
 	initHatHeight       = 4.0
 	fetherControlPoints = []mgl32.Vec3{
@@ -109,8 +99,12 @@ func programLoop(window *glfw.Window) error {
 	// Camera and positions
 	//------------------------------------------------------------------------------------------------------------
 	camPositions := [][2]mgl32.Vec3{
-		{{1.4, 1, 1.4}, {1, 0, 1}},
-		{{2, 1, 2}, {-1, 0, -1}},
+		{{1.7, 0.7, 1.7}, {1, 1, 1}},
+		{{1.7, 0.7, 1.7}, {1, 0, 1}},
+		{{5, 4, 5}, {0, 0, 0}},
+	}
+	camPathPoints := [][]mgl32.Vec3{
+		{{1, 1, 1}, {1, 0, 1}},
 	}
 	//------------------------------------------------------------------------------------------------------------
 	// models and vaos
@@ -165,7 +159,7 @@ func programLoop(window *glfw.Window) error {
 	//------------------------------------------------------------------------------------------------------------
 	//variables and inits
 	//------------------------------------------------------------------------------------------------------------
-	var mouthReposition, eyeRepositionDelta, snomanSpinAngle, snomanSpinAngle2, repositionDeltaTime float32
+	var currentDelta float32
 	angle := 0.0
 	previousTime := glfw.GetTime()
 	noFallingSections := 4.0
@@ -187,7 +181,7 @@ func programLoop(window *glfw.Window) error {
 	}
 	fallPathCtlPoints[int(noFallingSections-1)][1] = fallPathCtlPoints[int(noFallingSections-1)][2]
 
-	var totalElapsed float64 = 0
+	var totalElapsed float64
 	movementControlCount := 0
 	fallingControlCount := 0
 
@@ -196,40 +190,42 @@ func programLoop(window *glfw.Window) error {
 	//------------------------------------------------------------------------------------------------------------
 	var movementTimes []float64
 	var movementFunctions []Animation
+	// Test area
+
 	//---------------------------------scene 1 -----------------------------------------------------------
 	// hat falling
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
 		if fallingControlCount < int(noFallingSections) {
-			hatModel = mgl32.Translate3D(mgl32.BezierCurve3D(t, fallPathCtlPoints[fallingControlCount]).Elem()).Mul4(mgl32.HomogRotate3DY(float32(angle))).Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(10)))
+			hatModel = mgl32.Translate3D(mgl32.BezierCurve3D(t, fallPathCtlPoints[fallingControlCount]).Elem()).Mul4(mgl32.HomogRotate3DY(float32(angle * 2))).Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(10)))
 
 			if t == 1.0 {
 				fallingControlCount++
 				movementControlCount--
 			}
 		}
-	}), append(movementTimes, 1.0)
+	}), append(movementTimes, 2.0)
 
 	// hat repositioning
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
-		deltaTime := t - float32(repositionDeltaTime)
+		deltaTime := t - float32(currentDelta)
 		hatModel = hatModel.Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(-10) * deltaTime))
-		repositionDeltaTime = t
+		currentDelta = t
 
 	}), append(movementTimes, 0.8)
 	// eyes positioning
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
-		deltaTime := t - float32(eyeRepositionDelta)
+		deltaTime := t - float32(currentDelta)
 		rEyeModel = rEyeModel.Mul4(mgl32.Translate3D(0, 0, 0.23*deltaTime))
 		lEyeModel = lEyeModel.Mul4(mgl32.Translate3D(0, 0, 0.23*deltaTime))
-		eyeRepositionDelta = t
+		currentDelta = t
 	}), append(movementTimes, 0.8)
 	// mouth positioning
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
-		deltaTime := t - float32(mouthReposition)
+		deltaTime := t - float32(currentDelta)
 		for i := range mouthModels {
 			mouthModels[i] = mouthModels[i].Mul4(mgl32.Translate3D(0, 0, 0.27*deltaTime))
 		}
-		mouthReposition = t
+		currentDelta = t
 	}), append(movementTimes, 0.8)
 	//pause
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {}), append(movementTimes, 2.0)
@@ -238,42 +234,107 @@ func programLoop(window *glfw.Window) error {
 		waves := float32(1)
 		rot := math32.Sin(2*math32.Pi*waves*t) * mgl32.DegToRad(80)
 
-		snowManPathModel = snowManPathModel.Mul4(mgl32.HomogRotate3DY(snomanSpinAngle - rot))
-		snomanSpinAngle = rot
+		snowManPathModel = snowManPathModel.Mul4(mgl32.HomogRotate3DY(currentDelta - rot))
+		currentDelta = rot
 	}), append(movementTimes, 1.5)
-	//TODO: caida de la rama
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
+		waves := float32(1)
+		rot := math32.Sin(2*math32.Pi*waves*t) * mgl32.DegToRad(80)
+
+		snowManPathModel = snowManPathModel.Mul4(mgl32.HomogRotate3DY(currentDelta - rot))
+		currentDelta = rot
+	}), append(movementTimes, 6)
+	//pause
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {}), append(movementTimes, 1.0)
+	//arms falling
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
 
 		rightArmModel = rightArmModelRef.Mul4(mgl32.Translate3D(0, -1.4*t, 0)).Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(90))).Mul4(mgl32.HomogRotate3DX(mgl32.DegToRad(45)))
 		leftArmModel = leftArmModelRef.Mul4(mgl32.Translate3D(0, -1.4*t, 0)).Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(90))).Mul4(mgl32.HomogRotate3DX(mgl32.DegToRad(45)))
 
-	}), append(movementTimes, 2)
+	}), append(movementTimes, 0.5)
 	// snowmans looks around again
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
 		waves := float32(1)
 		rot := math32.Sin(2*math32.Pi*waves*t) * mgl32.DegToRad(80)
 
-		snowManPathModel = snowManPathModel.Mul4(mgl32.HomogRotate3DY(snomanSpinAngle - rot))
-		snomanSpinAngle = rot
+		snowManPathModel = snowManPathModel.Mul4(mgl32.HomogRotate3DY(currentDelta - rot))
+		currentDelta = rot
 	}), append(movementTimes, 5)
 	// snowman looks the arms
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
-		delta := t - snomanSpinAngle2
-		snowManPathModel = snowManPathModel.Mul4(mgl32.HomogRotate3DY(mgl32.DegToRad(-110) * delta))
-		snomanSpinAngle2 = t
+		delta := t - currentDelta
+		snowManPathModel = snowManPathModel.Mul4(mgl32.HomogRotate3DY(mgl32.DegToRad(-100) * delta))
+		currentDelta = t
 	}), append(movementTimes, 2)
 
-	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {}), append(movementTimes, 2.0)
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {}), append(movementTimes, 1)
+	//----------------------------------second scene----------------------------------------------------------------
 	//first person camera
 	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
-		camera := mgl32.LookAtV(camPositions[0][0], camPositions[0][1], mgl32.Vec3{0, 1, 0})
+		camera = mgl32.LookAtV(camPositions[0][0], camPositions[0][1], mgl32.Vec3{0, 1, 0})
 		gl.UniformMatrix4fv(cameraModel, 1, false, &camera[0])
 	}), append(movementTimes, 1.0)
+	//pause
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {}), append(movementTimes, 0.05)
+	// snowman looks arms in first person
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
+		camera = mgl32.LookAtV(camPositions[0][0], mgl32.BezierCurve3D(t, camPathPoints[0]), mgl32.Vec3{0, 1, 0})
+		gl.UniformMatrix4fv(cameraModel, 1, false, &camera[0])
+	}), append(movementTimes, .5)
+	//----------------------------------last scene----------------------------------------------------------------
+	//pause
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {}), append(movementTimes, 2.0)
+	//Isometric Framing
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
+		camera = mgl32.LookAtV(camPositions[2][0], camPositions[2][1], mgl32.Vec3{0, 1, 0})
+		gl.UniformMatrix4fv(cameraModel, 1, false, &camera[0])
+		projectTransform := mgl32.Ortho(-5, 5, -5, 5, 1, 100)
+		gl.UniformMatrix4fv(gl.GetUniformLocation(program, gl.Str("project\x00")), 1, false, &projectTransform[0])
+
+	}), append(movementTimes, 1.0)
+
+	// snowman movement to arms
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
+		delta := t - currentDelta
+		snowManPathModel = snowManPathModel.Mul4(mgl32.Translate3D(0, 0, 1.*delta))
+		currentDelta = t
+	}), append(movementTimes, .5)
+	// arms reposition
+
+	// snowman looks the camera
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
+		delta := t - currentDelta
+		snowManPathModel = snowManPathModel.Mul4(mgl32.HomogRotate3DY(mgl32.DegToRad(140) * delta))
+		currentDelta = t
+	}), append(movementTimes, .5)
+
+	// snowman comes back
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
+		delta := t - currentDelta
+		snowManPathModel = snowManPathModel.Mul4(mgl32.Translate3D(0, 0, 1.*delta))
+
+		rightArmModel = snowManPathModel.Mul4(mgl32.Translate3D(0.15, 0.7, 0)).Mul4(mgl32.HomogRotate3DX(mgl32.DegToRad(-45))).Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(-135)))
+		leftArmModel = snowManPathModel.Mul4(mgl32.Translate3D(-0.15, 0.7, 0)).Mul4(mgl32.HomogRotate3DX(mgl32.DegToRad(-45))).Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(135)))
+		currentDelta = t
+	}), append(movementTimes, .5)
+	// arm wave
+	movementFunctions, movementTimes = append(movementFunctions, func(t float32) {
+		waves := float32(1)
+		rot := math32.Sin(2*math32.Pi*waves*t) * mgl32.DegToRad(-20)
+
+		rightArmModel = snowManPathModel.Mul4(mgl32.Translate3D(0.15, 0.7, 0)).Mul4(mgl32.HomogRotate3DX(mgl32.DegToRad(-45))).Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(-135)))
+		leftArmModel = snowManPathModel.Mul4(mgl32.Translate3D(-0.15, 0.7, 0)).Mul4(mgl32.HomogRotate3DX(mgl32.DegToRad(45))).Mul4(mgl32.HomogRotate3DZ(mgl32.DegToRad(45)))
+		leftArmModel = leftArmModel.Mul4(mgl32.HomogRotate3DZ(rot))
+		if t == 1 {
+			movementControlCount--
+		}
+	}), append(movementTimes, .5)
 
 	//------------------------------------------------------------------------------------------------------------
 	//main loop
 	//------------------------------------------------------------------------------------------------------------
-	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+	//gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 
 	for !window.ShouldClose() {
 		time := glfw.GetTime()
@@ -291,6 +352,7 @@ func programLoop(window *glfw.Window) error {
 			} else {
 				movementFunctions[movementControlCount](1)
 				totalElapsed = 0
+				currentDelta = 0
 				movementControlCount++
 			}
 		}
