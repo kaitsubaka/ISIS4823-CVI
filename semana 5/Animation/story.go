@@ -17,7 +17,7 @@ type Animation func(t float32)
 const (
 	width              = 1080
 	height             = 720
-	windowName         = "Core"
+	windowName         = "Frosty the snowman"
 	vertexShaderSource = `
 		#version 410 core
 		layout (location = 0) in vec3 position;
